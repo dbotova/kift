@@ -12,5 +12,26 @@
 
 #ifndef KIFT_SERVER_H
 # define KIFT_SERVER_H
+# include <sys/resource.h>
+# include <stdio.h>
+# include <unistd.h>
+# include <sys/wait.h>
+# include <signal.h>
+# include <stdlib.h>
+# include <sys/socket.h>
+# include <arpa/inet.h>
+# include <string.h>
+# include <sys/wait.h>
+# include <signal.h>
+# define BUF_SIZE 10000
+# define SMART_FREE(x) {free(x); x = NULL;}
 
+typedef struct	s_connection
+{
+	int			socket_desc;
+	int			client_sock;
+	char		client_message[BUF_SIZE];
+	struct		sockaddr_in server;
+	struct		sockaddr_in client;
+} t_connection;
 #endif

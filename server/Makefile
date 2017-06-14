@@ -10,25 +10,48 @@
 #                                                                              #
 # **************************************************************************** #
 
+SHELL := /bin/bash
+BINDIR := ../../install/bin
+PATH := $(BINDIR):$(PATH)
+PKGCONFIG=${BINDIR}/pkg-config
+
 OBJS = kift_server.o
+TARGET = kift_server
 
-HEADERS = kift_server.h
+MODELDIR = $(shell ${PKGCONFIG} --variable=modeldir pocketsphinx)
 
-CFLAGS += -Wall -Werror -Wextra
+INCLUDES := $(shell ${PKGCONFIG} --cflags pocketsphinx sphinxbase)
 
-NAME = kift_server
+CFLAGS := $(INCLUDES) -DMODELDIR=\"$(MODELDIR)\"
+CPPFLAGS := $(INCLUDES) -DMODELDIR=\"$(MODELDIR)\"
+LFLAGS := $(shell ${PKGCONFIG} --libs pocketsphinx sphinxbase)
 
-all: $(NAME)
+$(TARGET): $(OBJS)
+	$(CC) -o $(TARGET) $(OBJS) $(LFLAGS)
 
-$(NAME): $(OBJS)
-	$(CC) $(CFLAGS) $(OBJS) -o $(NAME)
+clean:
+	echo $(PATH)
+	$(RM) -f $(OBJS) $(TARGET)
 
-$(OBJ): $(HEADERS)
+# OBJS = kift_server.o
 
-clean: 
-	rm -f $(OBJS)
+# HEADERS = kift_server.h
 
-fclean: clean
-	rm -f $(NAME)
+# CFLAGS += -Wall -Werror -Wextra
 
-re: fclean all
+# NAME = kift_server
+
+# all: $(NAME)
+
+# $(NAME): $(OBJS)
+# 	$(CC) $(CFLAGS) $(OBJS) -o $(NAME)
+
+# $(OBJ): $(HEADERS)
+
+# clean: 
+# 	rm -f $(OBJS)
+
+# fclean: clean
+# 	rm -f $(NAME)
+
+# re: fclean all
