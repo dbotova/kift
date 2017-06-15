@@ -81,18 +81,14 @@ static int read_samples(ps_decoder_t *ps, int num_samples, int socket)
 
 static int kift_listen(t_connection *con)
 {
-    int c;
-
-    c = 0;
+    int c = 0;
     int read_size = 0;
-
 
     ps_decoder_t *ps;
     cmd_ln_t *config;
     char const *hyp, *uttid;
     int rv;
     int score;
-    // int16 client_message[BUF_SIZE];
 
     config = cmd_ln_init(NULL, ps_args(), TRUE,
                  "-hmm", MODELDIR "/en-us/en-us",
@@ -110,42 +106,26 @@ static int kift_listen(t_connection *con)
         return -1;
     }
 
-
-
     c = sizeof(struct sockaddr_in);
     if (server_accept_client(con) < 0)
         exit(-1);
     rv = ps_start_utt(ps);
-    //while((read_size = recv(con->client_sock, client_message, BUF_SIZE , 0)) >= 0)
     int32 num_samples = 0;
     recv(con->client_sock, &num_samples, sizeof(num_samples), 0);
     read_size = read_samples(ps, num_samples, con->client_sock);
-    //read_size = read_data(client_message, num_samples, con->client_sock);
-    //{
-    	// ******* FUN STARTS HERE
-    	// printf("\n\n\n read: %d\n", read_size);
-     //    if (read_size > 0)
-     //    {
-     //       	rv = ps_process_raw(ps, client_message, read_size, FALSE, FALSE);
-     //       	//break ;
-     //       	//write(con->client_sock , "got something\n", strlen("got something\n"));
-     //    }
 
-        if (read_size <= 0)
-        {
-            puts("Client disconnected");
-            fflush(stdout);
-            if (server_accept_client(con) < 0)
-                exit(-1);
-        }
-    //}
-    // if(read_size == -1)
-    //     perror("recv failed");
-
+    if (read_size <= 0)
+    {
+        puts("Client disconnected");
+        fflush(stdout);
+        if (server_accept_client(con) < 0)
+            exit(-1);
+    }
+    
 	rv = ps_end_utt(ps);
     hyp = ps_get_hyp(ps, &score);
     printf("Recognized: %s\n", hyp);
-    write(con->client_sock , hyp, strlen(hyp));
+    send(con->client_sock , hyp, strlen(hyp), 0);
     ps_free(ps);
     cmd_ln_free_r(config);
 
@@ -183,16 +163,6 @@ static int kift_connect(t_connection *con, int is_d)
         exit(-1);
     }
     listen(con->socket_desc , 3);
-    // if (is_d)
-    // {
-    //     if ((pid = fork()) < 0)
-    //         exit(-1);
-    //     if (pid == 0)
-    //         exit(daemon_listen(con));
-    //     else
-    //         exit(0);
-    // }
-    //else if (kift_listen(con) < 0)
     if (kift_listen(con) < 0)
         return (-1);
     return (0);
@@ -213,27 +183,5 @@ int main(int argc, char *argv[])
     SMART_FREE(con);
 
     return (0);
-
-    // char const *cfg;
-
-    // config = cmd_ln_init(config, ps_args(), TRUE,
-    //              "-hmm", MODELDIR "/en-us/en-us",
-    //              "-lm", "9816.lm",
-    //              "-dict", "9816.dic",
-    //              "-logfn", "kift.log",
-    //              NULL);
-    // ps = ps_init(config);
-    // if (ps == NULL)
-    // {
-    //     cmd_ln_free_r(config);
-    //     return 1;
-    // }
-
-    // recognize();
-
-    // ps_free(ps);
-    // cmd_ln_free_r(config);
-
-    // return 0;
 }
 

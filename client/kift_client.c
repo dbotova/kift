@@ -57,21 +57,14 @@ static off_t fsize(const char *filename)
 
 static int read_server(t_client_connection *con)
 {
-    //char *message = (char*)malloc(sizeof(char) * BUF_SIZE);
     char server_reply[BUF_SIZE * 2] = {0};
 
     FILE *fh;
     int16_t buf[BUF_SIZE];
     size_t nsamp;
      
-    //message = NULL;
-    while(42)
-    {
-    	// FUN STARTS HERE
-        //printf("\nEnter message :\n");
-        //read_input(&message);
-        // if (strcmp(message, "exit") == 0)
-        //     break ;
+    //while(42)
+    //{
         off_t size = fsize("goforward.raw"); //check for errors
         int32_t num_samples = size / 2;
 
@@ -83,18 +76,13 @@ static int read_server(t_client_connection *con)
     	}
     	// check for errors
     	send(con->sock, &num_samples, sizeof(num_samples), 0);
-    	 while (!feof(fh))
-    	 {
-    	 	nsamp = fread(buf, 2, BUF_SIZE, fh);
-    	 	size_t s = send(con->sock, buf, nsamp * 2, 0);
-    	 	printf("\n\n\n sent %zu \n", s);
-    	 }
+		while (!feof(fh))
+		{
+			nsamp = fread(buf, 2, BUF_SIZE, fh);
+			size_t s = send(con->sock, buf, nsamp * 2, 0);
+			printf("\n\n\n sent %zu \n", s);
+		}
 
-        // if(send(con->sock, buf, nsamp, 0) < 0)
-        // {
-        //     perror("Send failed");
-        //     return (-1);
-        // }
     	memset(server_reply, 0, BUF_SIZE * 2);
         if(recv(con->sock, server_reply, BUF_SIZE * 2, 0) < 0)
         {
@@ -102,10 +90,9 @@ static int read_server(t_client_connection *con)
             return (-1);
         }
         printf("\nServer reply :\n");
-        printf("%s", server_reply);
-        //SMART_FREE(message);
+        printf("%s\n", server_reply);
         fclose(fh);
-    }
+    //}
     return (0);
 }
 
