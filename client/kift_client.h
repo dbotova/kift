@@ -13,12 +13,14 @@
 #ifndef KIFT_CLIENT_H
 # define KIFT_CLIENT_H
 # include <stdio.h>
+# include <stdint.h>
 # include <string.h>
 # include <sys/socket.h>
 # include <arpa/inet.h>
 # include <unistd.h>
 # include <stdlib.h>
-# define BUF_SIZE 10000
+# include <sys/stat.h>
+# define BUF_SIZE 1000
 # define SMART_FREE(x) {free(x); x = NULL;}
 
 typedef struct	s_client_connection

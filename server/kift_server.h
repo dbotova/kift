@@ -23,7 +23,7 @@
 # include <string.h>
 # include <sys/wait.h>
 # include <signal.h>
-# define BUF_SIZE 10000
+# define BUF_SIZE 1000
 # define SMART_FREE(x) {free(x); x = NULL;}
 
 typedef struct	s_connection

@@ -27,7 +27,7 @@
 
 static int init_connect(t_client_connection *con)
 {
-    con->sock = socket(AF_INET , SOCK_STREAM , 0);
+    con->sock = socket(PF_INET , SOCK_STREAM , 0);
     if (con->sock == -1)
     {
         printf("Could not create socket\n");
@@ -45,13 +45,23 @@ static int init_connect(t_client_connection *con)
     return (0);
 }
 
+static off_t fsize(const char *filename)
+{
+    struct stat st; 
+
+    if (stat(filename, &st) == 0)
+        return st.st_size;
+
+    return -1; 
+}
+
 static int read_server(t_client_connection *con)
 {
     //char *message = (char*)malloc(sizeof(char) * BUF_SIZE);
     char server_reply[BUF_SIZE * 2] = {0};
 
     FILE *fh;
-    int buf[BUF_SIZE];
+    int16_t buf[BUF_SIZE];
     size_t nsamp;
      
     //message = NULL;
@@ -62,23 +72,30 @@ static int read_server(t_client_connection *con)
         //read_input(&message);
         // if (strcmp(message, "exit") == 0)
         //     break ;
+        off_t size = fsize("goforward.raw"); //check for errors
+        int32_t num_samples = size / 2;
+
         fh = fopen("goforward.raw", "rb");
     	if (fh == NULL)
     	{
         	fprintf(stderr, "Unable to open input file goforward.raw\n");
         	return -1;
     	}
+    	// check for errors
+    	send(con->sock, &num_samples, sizeof(num_samples), 0);
     	 while (!feof(fh))
     	 {
     	 	nsamp = fread(buf, 2, BUF_SIZE, fh);
-    	 	send(con->sock, buf, nsamp, 0);
+    	 	size_t s = send(con->sock, buf, nsamp * 2, 0);
+    	 	printf("\n\n\n sent %zu \n", s);
     	 }
 
-        if(send(con->sock, buf, nsamp, 0) < 0)
-        {
-            perror("Send failed");
-            return (-1);
-        }
+        // if(send(con->sock, buf, nsamp, 0) < 0)
+        // {
+        //     perror("Send failed");
+        //     return (-1);
+        // }
+    	memset(server_reply, 0, BUF_SIZE * 2);
         if(recv(con->sock, server_reply, BUF_SIZE * 2, 0) < 0)
         {
             perror("recv failed");
