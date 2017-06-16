@@ -20,7 +20,7 @@
 # include <unistd.h>
 # include <stdlib.h>
 # include <sys/stat.h>
-# define BUF_SIZE 1000
+# define BUF_SIZE (4096 * 2)
 # define SMART_FREE(x) {free(x); x = NULL;}
 
 typedef struct	s_client_connection

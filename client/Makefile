@@ -10,25 +10,20 @@
 #                                                                              #
 # **************************************************************************** #
 
-OBJS = kift_client.o
+SHELL := /bin/bash
+BINDIR := ../../install/bin
+PATH := $(BINDIR):$(PATH)
+PKGCONFIG=${BINDIR}/pkg-config
 
-HEADERS = kift_client.h
+OBJS=kift_client.o
+TARGET=kift_client
 
-CFLAGS += -Wall -Werror -Wextra
+INCLUDES := $(shell ${PKGCONFIG} --cflags sdl2)
 
-NAME = kift_client
+CFLAGS += $(INCLUDES) -g
+LFLAGS := $(shell ${PKGCONFIG} --libs sdl2)
 
-all: $(NAME)
+$(TARGET):$(OBJS)
+	$(CC) -o $(TARGET) $(OBJS) $(LFLAGS)
 
-$(NAME): $(OBJS)
-	$(CC) $(CFLAGS) $(OBJS) -o $(NAME)
-
-$(OBJ): $(HEADERS)
-
-clean: 
-	rm -f $(OBJS)
-
-fclean: clean
-	rm -f $(NAME)
-
-re: fclean all
+all: $(TARGET)

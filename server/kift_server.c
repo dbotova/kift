@@ -92,9 +92,10 @@ static int kift_listen(t_connection *con)
 
     config = cmd_ln_init(NULL, ps_args(), TRUE,
                  "-hmm", MODELDIR "/en-us/en-us",
-                 "-lm", MODELDIR "/en-us/en-us.lm.bin",
-                 "-dict", MODELDIR "/en-us/cmudict-en-us.dict",
+                 "-lm", "9816.lm",
+                 "-dict", "9816.dic",
                  NULL);
+    
     if (config == NULL) {
         fprintf(stderr, "Failed to create config object, see log for  details\n");
         return -1;
@@ -111,9 +112,15 @@ static int kift_listen(t_connection *con)
         exit(-1);
     rv = ps_start_utt(ps);
     int32 num_samples = 0;
-    recv(con->client_sock, &num_samples, sizeof(num_samples), 0);
-    read_size = read_samples(ps, num_samples, con->client_sock);
-
+    do
+    {
+	    int rc = recv(con->client_sock, &num_samples, sizeof(num_samples), 0);
+	    printf("%d samples (rc = %d)\n", num_samples, rc);
+	    if (num_samples)
+ 		   	read_size = read_samples(ps, num_samples, con->client_sock);
+    }
+    while(num_samples);
+ 
     if (read_size <= 0)
     {
         puts("Client disconnected");
