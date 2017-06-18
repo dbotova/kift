@@ -33,9 +33,9 @@ static int parse_reply (char *hyp)
 
     else if (strstr(hyp, "WHO YOU ARE?"))
         system("../../SAM/sam I am a  robot. Your  KIFT slave");
-    //
-    else if (strstr(hyp, "WHO YOU ARE?"))
-        system("../../SAM/sam I am a  robot. Your  KIFT slave");
+    
+    else if (strstr(hyp, "PLAY \"MASTER OF PUPPETS\""))
+        system("open https://www.youtube.com/watch?v=S7blkui3nQc");
 
      else if (strstr(hyp, "TELL ME A STORY"))
         system("../../SAM/sam You were  to  busy  to tell  me any");
@@ -51,6 +51,12 @@ static int parse_reply (char *hyp)
 
     else if (strstr(hyp, "DO YOU LOVE ME?"))
         system("../../SAM/sam It is a  bad place   to   look   for   a love");
+
+    else if (strstr(hyp, "FIND ME COFFEE"))
+    {
+    	system("../../SAM/sam Check the map");
+    	system("open https://www.google.com/search?q=starbucks+near+me&ie=utf-8&oe=utf-8");
+    }
 
     else if (strstr(hyp, "SHUTDOWN"))
     {
@@ -84,7 +90,7 @@ static void recognize(t_client_connection *con)
     SDL_LogSetPriority(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO);
 
     /* Load the SDL library */
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0)
+    if (SDL_Init(SDL_INIT_AUDIO) < 0)
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't initialize SDL: %s\n", SDL_GetError());
 
     SDL_zero(wanted);
