@@ -20,22 +20,43 @@ static SDL_AudioSpec spec;
 static SDL_AudioDeviceID devid_in = 0;
 
 
-static void parse_reply (char *hyp)
+static int parse_reply (char *hyp)
 {
-    if (strcmp(hyp, "OKAY KIFT") == 0)
+	int result = 0;
+
+	SDL_PauseAudioDevice(devid_in, SDL_TRUE);
+    if (strstr(hyp, "OKAY KIFT") || strstr(hyp, "PREEV’AT KIFT"))
         system("../../SAM/sam Yes master");
 
-    if (strcmp(hyp, "OPEN SAFARI") == 0)
+    else if (strstr(hyp, "OPEN SAFARI"))
         system("/Applications/Safari.app/Contents/MacOS/Safari & sleep 1");
 
-    if (strcmp(hyp, "SEND E-MAIL") == 0)
-        system("../../SAM/sam I can't do it");
+    else if (strstr(hyp, "WHO YOU ARE?"))
+        system("../../SAM/sam I am a  robot. Your  KIFT  project  product");
 
-    if (strcmp(hyp, "SHUTDOWN") == 0)
+     else if (strstr(hyp, "TELL ME A STORY"))
+        system("../../SAM/sam You were  to  busy  to tell  me any");
+
+    else if (strstr(hyp, "STUPID"))
+        system("../../SAM/sam That was mean");
+
+    else if (strstr(hyp, "HA-HA-HA"))
+        system("../../SAM/sam What is so funny?");
+
+    else if (strstr(hyp, "STOP IT"))
+        system("../../SAM/sam I am sorry");
+
+    else if (strstr(hyp, "DO YOU LOVE ME?"))
+        system("../../SAM/sam It is a  bad place   to   look   for   a love");
+
+    else if (strstr(hyp, "SHUTDOWN"))
     {
         system("../../SAM/sam OKaey master");
-        exit(0);
+        result = 1;
     }
+ 	
+ 	SDL_PauseAudioDevice(devid_in, SDL_FALSE);
+    return result;
 }
 
 void AudioCallback(void*  userdata,
@@ -43,7 +64,6 @@ void AudioCallback(void*  userdata,
                        int    len)
 {
 	t_client_connection *con = (t_client_connection*)userdata;
-	con->has_data = 1;
 
     int32_t num_samples = len / 2;
     send(con->sock, &num_samples, sizeof(num_samples), 0);
@@ -56,22 +76,13 @@ static void recognize(t_client_connection *con)
 {
     const char *devname = NULL;
     SDL_AudioSpec wanted;
-    int devcount;
-    int i;
 
     /* Enable standard application logging */
     SDL_LogSetPriority(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO);
 
     /* Load the SDL library */
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0)
-    {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't initialize SDL: %s\n", SDL_GetError());
-        //return (1);
-    }
-
-    devcount = SDL_GetNumAudioDevices(SDL_TRUE);
-    for (i = 0; i < devcount; i++)
-        SDL_Log(" Capture device #%d: '%s'\n", i, SDL_GetAudioDeviceName(i, SDL_TRUE));
 
     SDL_zero(wanted);
     wanted.freq = 16000;
@@ -95,20 +106,24 @@ static void recognize(t_client_connection *con)
 
     // Wait for server to tell us what to do while feeding it
     // with audio samples.
-    printf("Sending...\n");
+	printf("Sending...\n");
 
-    char server_reply[BUF_SIZE * 2] = {0};
-
-	memset(server_reply, 0, BUF_SIZE * 2);
-    if(recv(con->sock, server_reply, BUF_SIZE * 2, 0) < 0)
+    while (42)
     {
-        perror("recv failed");
-        return;
-    }
+	    char server_reply[BUF_SIZE * 2] = {0};
 
-    printf("\nServer reply :\n");
-    printf("%s\n", server_reply);
-    parse_reply(server_reply);
+		memset(server_reply, 0, BUF_SIZE * 2);
+	    if(recv(con->sock, server_reply, BUF_SIZE * 2, 0) < 0)
+	    {
+	        perror("recv failed");
+	        return;
+	    }
+
+	    printf("\nServer reply :\n");
+	    printf("%s\n", server_reply);
+	    if (parse_reply(server_reply) == 1)
+	    	break;
+	}
 
     SDL_Log("Shutting down.\n");
     SDL_PauseAudioDevice(devid_in, 1);
@@ -130,7 +145,6 @@ static int init_connect(t_client_connection *con)
     con->server.sin_addr.s_addr = inet_addr("127.0.0.1");
     con->server.sin_family = AF_INET;
     con->server.sin_port = htons(8888);
-    con->has_data = 0;
     if (connect(con->sock, (struct sockaddr *)&con->server, sizeof(con->server)) < 0)
     {
         perror("connect failed. Error");

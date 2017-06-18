@@ -22,17 +22,7 @@
 
 static ps_decoder_t *ps;
 static cmd_ln_t *config;
-
-typedef enum
-{
-	UTT_STATE_WAITING = 0,
-	UTT_STATE_LISTENING,
-	UTT_STATE_FINISHED,
-	UTT_STATE_ERROR,
-	UTT_STATE_MAX
-} utt_states_t;
-
-utt_states_t utt_state = UTT_STATE_WAITING;
+static t_utt_states utt_state = UTT_STATE_WAITING;
 
 static int  server_accept_client(t_connection *con)
 {
@@ -114,7 +104,7 @@ static int kift_listen(t_connection *con)
 
     while (42)
     {
-    	int pid = 0;
+    	pid_t pid = 0;
 
 	    if (server_accept_client(con) < 0)
         	exit(-1);
@@ -132,13 +122,14 @@ static int kift_listen(t_connection *con)
             continue;
         }
 
-        break;
+        break ;
     }
 
     config = cmd_ln_init(NULL, ps_args(), TRUE,
                  "-hmm", MODELDIR "/en-us/en-us",
-                 "-lm", "9816.lm",
-                 "-dict", "9816.dic",
+                 "-lm", "9382.lm",
+                 "-dict", "9382.dic",
+                 "-logfn", "kift.log",
                  NULL);
     
     if (config == NULL) {
@@ -153,39 +144,51 @@ static int kift_listen(t_connection *con)
     }
 
 
-    rv = ps_start_utt(ps);
-    utt_state = UTT_STATE_WAITING;
-    int32 num_samples = 0;
-    do
+    while(utt_state < UTT_STATE_QUIT)
     {
-	    read_size = 0;
-	    int rc = recv(con->client_sock, &num_samples, sizeof(num_samples), 0);
-	    if (rc <= 0)
+	    rv = ps_start_utt(ps);
+	    utt_state = UTT_STATE_WAITING;
+	    int32 num_samples = 0;
+	    do
 	    {
-	    	printf("Error or disconnected (%d) errno=%d\n", rc, errno);
- 		   	utt_state = UTT_STATE_ERROR;
-	    	break;
+		    read_size = 0;
+		    int rc = recv(con->client_sock, &num_samples, sizeof(num_samples), 0);
+		    if (rc <= 0)
+		    {
+		    	printf("Error or disconnected (%d) errno=%d\n", rc, errno);
+	 		   	utt_state = UTT_STATE_ERROR;
+		    	break;
+		    }
+		    printf("%d samples (rc = %d)\n", num_samples, rc);
+		    if (num_samples)
+		    {
+	 		   	read_size = read_samples(ps, num_samples, con->client_sock);
+	 		   	if (read_size != 1)
+	 		   	{
+	 		   		printf("Error reading samples: %d\n", read_size);
+	 		   		utt_state = UTT_STATE_ERROR;
+	 		   	}
+		    }
 	    }
-	    printf("%d samples (rc = %d)\n", num_samples, rc);
-	    if (num_samples)
-	    {
- 		   	read_size = read_samples(ps, num_samples, con->client_sock);
- 		   	if (read_size != 1)
- 		   	{
- 		   		printf("Error reading samples: %d\n", read_size);
- 		   		utt_state = UTT_STATE_ERROR;
- 		   	}
-	    }
-    }
-    while(utt_state < UTT_STATE_FINISHED);
- 
- 	if (utt_state == UTT_STATE_FINISHED)
- 	{
-		rv = ps_end_utt(ps);
-		hyp = ps_get_hyp(ps, &score);
-		printf("Recognized: %s\n", hyp);
-		if (hyp)
-			send(con->client_sock , hyp, strlen(hyp), 0);
+	    while(utt_state < UTT_STATE_FINISHED);
+	 
+	 	if (utt_state == UTT_STATE_FINISHED)
+	 	{
+			rv = ps_end_utt(ps);
+			hyp = ps_get_hyp(ps, &score);
+			printf("Recognized: %s\n", hyp);
+			if (hyp)
+				send(con->client_sock , hyp, strlen(hyp), 0);
+			if (hyp && strcmp(hyp, "SHUTDOWN") == 0)
+				utt_state = UTT_STATE_QUIT;
+			else
+				utt_state = UTT_STATE_WAITING;
+		}
+		else
+		{
+			printf("Terminating connection due to error.\n");
+			break;
+		}
 	}
 
     ps_free(ps);

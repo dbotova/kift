@@ -34,4 +34,14 @@ typedef struct	s_connection
 	struct		sockaddr_in server;
 	struct		sockaddr_in client;
 } t_connection;
+
+typedef enum
+{
+	UTT_STATE_WAITING = 0,
+	UTT_STATE_LISTENING,
+	UTT_STATE_FINISHED,
+	UTT_STATE_ERROR,
+	UTT_STATE_MAX,
+	UTT_STATE_QUIT
+} t_utt_states;
 #endif
