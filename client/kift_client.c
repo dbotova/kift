@@ -32,7 +32,10 @@ static int parse_reply (char *hyp)
         system("/Applications/Safari.app/Contents/MacOS/Safari & sleep 1");
 
     else if (strstr(hyp, "WHO YOU ARE?"))
-        system("../../SAM/sam I am a  robot. Your  KIFT  project  product");
+        system("../../SAM/sam I am a  robot. Your  KIFT slave");
+    //
+    else if (strstr(hyp, "WHO YOU ARE?"))
+        system("../../SAM/sam I am a  robot. Your  KIFT slave");
 
      else if (strstr(hyp, "TELL ME A STORY"))
         system("../../SAM/sam You were  to  busy  to tell  me any");
@@ -133,7 +136,7 @@ static void recognize(t_client_connection *con)
 
 
 
-static int init_connect(t_client_connection *con)
+static int init_connect(t_client_connection *con, char *addr)
 {
     con->sock = socket(PF_INET , SOCK_STREAM , 0);
     if (con->sock == -1)
@@ -142,7 +145,7 @@ static int init_connect(t_client_connection *con)
         return (-1);
     }
     puts("Socket created");
-    con->server.sin_addr.s_addr = inet_addr("127.0.0.1");
+    con->server.sin_addr.s_addr = inet_addr(addr ? addr : "127.0.0.1");
     con->server.sin_family = AF_INET;
     con->server.sin_port = htons(8888);
     if (connect(con->sock, (struct sockaddr *)&con->server, sizeof(con->server)) < 0)
@@ -153,12 +156,12 @@ static int init_connect(t_client_connection *con)
     return (0);
 }
 
-int main()
+int main(int argc, char **argv)
 {
     t_client_connection *con;
 
     con = malloc(sizeof(t_client_connection));
-    if (init_connect(con) < 0)
+    if (init_connect(con, argv[1]) < 0)
         return (-1);
     printf("Connected\n");
     recognize(con);
