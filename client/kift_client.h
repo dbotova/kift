@@ -20,12 +20,13 @@
 # include <unistd.h>
 # include <stdlib.h>
 # include <sys/stat.h>
-# define BUF_SIZE (4096 * 2)
+# define BUF_SIZE (1024)  // 512 samples 16 bits each.
 # define SMART_FREE(x) {free(x); x = NULL;}
 
 typedef struct	s_client_connection
 {
 	int			sock;
+	int 		has_data;
 	struct		sockaddr_in server;
 }				t_client_connection;
 

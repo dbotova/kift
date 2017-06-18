@@ -22,7 +22,17 @@
 
 static ps_decoder_t *ps;
 static cmd_ln_t *config;
-static FILE *rawfd;
+
+typedef enum
+{
+	UTT_STATE_WAITING = 0,
+	UTT_STATE_LISTENING,
+	UTT_STATE_FINISHED,
+	UTT_STATE_ERROR,
+	UTT_STATE_MAX
+} utt_states_t;
+
+utt_states_t utt_state = UTT_STATE_WAITING;
 
 static int  server_accept_client(t_connection *con)
 {
@@ -70,8 +80,21 @@ static int read_samples(ps_decoder_t *ps, int num_samples, int socket)
 		int rc = read_data(client_message, (num_samples > BUF_SIZE) ? BUF_SIZE : num_samples, socket);
 		if (rc > 0)
 		{
-			 ps_process_raw(ps, client_message, rc, FALSE, FALSE);
-			 num_samples -= rc;
+			uint8 in_speech = 0;
+			ps_process_raw(ps, client_message, rc, FALSE, FALSE);
+            in_speech = ps_get_in_speech(ps);
+        	if (in_speech && (utt_state == UTT_STATE_WAITING))
+        	{
+        		utt_state = UTT_STATE_LISTENING;
+            	printf("Listening...\n");
+        	}
+        	if (!in_speech && (utt_state == UTT_STATE_LISTENING))
+        	{
+        		utt_state = UTT_STATE_FINISHED;
+            	printf("Finished, processing...\n");
+        	}
+
+			num_samples -= rc;
 		}
 		else
 			return rc;
@@ -81,7 +104,6 @@ static int read_samples(ps_decoder_t *ps, int num_samples, int socket)
 
 static int kift_listen(t_connection *con)
 {
-    int c = 0;
     int read_size = 0;
 
     ps_decoder_t *ps;
@@ -89,6 +111,29 @@ static int kift_listen(t_connection *con)
     char const *hyp, *uttid;
     int rv;
     int score;
+
+    while (42)
+    {
+    	int pid = 0;
+
+	    if (server_accept_client(con) < 0)
+        	exit(-1);
+
+        pid = fork();
+        if (pid < 0)
+        {
+        	printf("fork() failed with error %d\n", errno);
+        	exit(2);
+        }
+        if(pid > 0)
+        {
+            close(con->client_sock);
+            printf ("Keep Waiting...\n");
+            continue;
+        }
+
+        break;
+    }
 
     config = cmd_ln_init(NULL, ps_args(), TRUE,
                  "-hmm", MODELDIR "/en-us/en-us",
@@ -107,36 +152,45 @@ static int kift_listen(t_connection *con)
         return -1;
     }
 
-    c = sizeof(struct sockaddr_in);
-    if (server_accept_client(con) < 0)
-        exit(-1);
+
     rv = ps_start_utt(ps);
+    utt_state = UTT_STATE_WAITING;
     int32 num_samples = 0;
     do
     {
+	    read_size = 0;
 	    int rc = recv(con->client_sock, &num_samples, sizeof(num_samples), 0);
+	    if (rc <= 0)
+	    {
+	    	printf("Error or disconnected (%d) errno=%d\n", rc, errno);
+ 		   	utt_state = UTT_STATE_ERROR;
+	    	break;
+	    }
 	    printf("%d samples (rc = %d)\n", num_samples, rc);
 	    if (num_samples)
+	    {
  		   	read_size = read_samples(ps, num_samples, con->client_sock);
+ 		   	if (read_size != 1)
+ 		   	{
+ 		   		printf("Error reading samples: %d\n", read_size);
+ 		   		utt_state = UTT_STATE_ERROR;
+ 		   	}
+	    }
     }
-    while(num_samples);
+    while(utt_state < UTT_STATE_FINISHED);
  
-    if (read_size <= 0)
-    {
-        puts("Client disconnected");
-        fflush(stdout);
-        if (server_accept_client(con) < 0)
-            exit(-1);
-    }
-    
-	rv = ps_end_utt(ps);
-    hyp = ps_get_hyp(ps, &score);
-    printf("Recognized: %s\n", hyp);
-    send(con->client_sock , hyp, strlen(hyp), 0);
+ 	if (utt_state == UTT_STATE_FINISHED)
+ 	{
+		rv = ps_end_utt(ps);
+		hyp = ps_get_hyp(ps, &score);
+		printf("Recognized: %s\n", hyp);
+		if (hyp)
+			send(con->client_sock , hyp, strlen(hyp), 0);
+	}
+
     ps_free(ps);
     cmd_ln_free_r(config);
-
-    exit(0);
+    return (0);
 }
 
 static int init_connnect(t_connection *con)
@@ -150,27 +204,32 @@ static int init_connnect(t_connection *con)
     con->server.sin_family = AF_INET;
     con->server.sin_addr.s_addr = INADDR_ANY;
     con->server.sin_port = htons(8888);
+
+
+
+	int enable = 1;
+	if (setsockopt(con->socket_desc, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0)
+	    perror("setsockopt(SO_REUSEADDR) failed");
+
     if(bind(con->socket_desc, (struct sockaddr *)&con->server, sizeof(con->server)) < 0)
     {
         perror("bind failed. Error");
         return (-1);
     }
-    puts("Hydar server has been started");
+    puts("KIFT server has been started");
     return (0);
 }
 
-static int kift_connect(t_connection *con, int is_d)
+static int kift_connect(t_connection **con)
 {
-    pid_t pid;
-
-    con = malloc(sizeof(t_connection));
-    if (init_connnect(con) < 0)
+    *con = malloc(sizeof(t_connection));
+    if (init_connnect(*con) < 0)
     {
         perror("Error occured");
         exit(-1);
     }
-    listen(con->socket_desc , 3);
-    if (kift_listen(con) < 0)
+    listen((*con)->socket_desc , 3);
+    if (kift_listen(*con) < 0)
         return (-1);
     return (0);
 }
@@ -178,13 +237,9 @@ static int kift_connect(t_connection *con, int is_d)
 int main(int argc, char *argv[])
 {
 	t_connection *con;
-    int is_d;
 
-    is_d = 0;
     con = NULL;
-    if (argc == 2 && strcmp(argv[1], "-D") == 0)
-        is_d = 1;
-    kift_connect(con, is_d);
+    kift_connect(&con);
     if (con->client_sock < 1)
         return (1);
     SMART_FREE(con);

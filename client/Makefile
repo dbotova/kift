@@ -27,3 +27,6 @@ $(TARGET):$(OBJS)
 	$(CC) -o $(TARGET) $(OBJS) $(LFLAGS)
 
 all: $(TARGET)
+
+clean: 
+	rm -f kift_client.o $(TARGET)

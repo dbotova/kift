@@ -22,9 +22,11 @@ MODELDIR = $(shell ${PKGCONFIG} --variable=modeldir pocketsphinx)
 
 INCLUDES := $(shell ${PKGCONFIG} --cflags pocketsphinx sphinxbase)
 
-CFLAGS := $(INCLUDES) -DMODELDIR=\"$(MODELDIR)\"
+CFLAGS := $(INCLUDES) -DMODELDIR=\"$(MODELDIR)\" -g
 CPPFLAGS := $(INCLUDES) -DMODELDIR=\"$(MODELDIR)\"
 LFLAGS := $(shell ${PKGCONFIG} --libs pocketsphinx sphinxbase)
+
+all: $(TARGET)
 
 $(TARGET): $(OBJS)
 	$(CC) -o $(TARGET) $(OBJS) $(LFLAGS)

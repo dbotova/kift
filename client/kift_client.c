@@ -16,8 +16,6 @@
 
 #include <stdlib.h>
 
-static SDL_Window *window = NULL;
-static SDL_Renderer *renderer = NULL;
 static SDL_AudioSpec spec;
 static SDL_AudioDeviceID devid_in = 0;
 
@@ -40,87 +38,12 @@ static void parse_reply (char *hyp)
     }
 }
 
-static int loop(t_client_connection *con)
-{
-    SDL_bool please_quit = SDL_FALSE;
-    SDL_Event e;
-    int want_stop = 0;
-
-    while (SDL_PollEvent(&e))
-    {
-        if (e.type == SDL_QUIT)
-            please_quit = SDL_TRUE;
-        else if (e.type == SDL_KEYDOWN)
-        {
-            if (e.key.keysym.sym == SDLK_ESCAPE)
-                please_quit = SDL_TRUE;
-        }
-        else if (e.type == SDL_MOUSEBUTTONDOWN)
-        {
-            if (e.button.button == 1)
-            {
-                SDL_PauseAudioDevice(devid_in, SDL_FALSE);
-                want_stop = 0;
-            }
-        }
-        else if (e.type == SDL_MOUSEBUTTONUP)
-        {
-            if (e.button.button == 1)
-            {
-                SDL_PauseAudioDevice(devid_in, SDL_TRUE);
-                want_stop = 1;
-            }
-        }
-    }
-
-    if (SDL_GetAudioDeviceStatus(devid_in) == SDL_AUDIO_PLAYING)
-        SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
-    else
-        SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-    SDL_RenderClear(renderer);
-    SDL_RenderPresent(renderer);
-
-    if (please_quit)
-    {
-        /* stop playing back, quit. */
-        SDL_Log("Shutting down.\n");
-        SDL_PauseAudioDevice(devid_in, 1);
-        SDL_CloseAudioDevice(devid_in);
-        SDL_DestroyRenderer(renderer);
-        SDL_DestroyWindow(window);
-        SDL_Quit();
-        return 0;
-    }
-
-    //Uint8 buf[BUF_SIZE];
-    //Uint32 br;
-
-    if (want_stop)
-    {
-    	int32_t end_mark = 0;
-		send(con->sock, &end_mark, sizeof(end_mark), 0);
-
-	    char server_reply[BUF_SIZE * 2] = {0};
-
-		memset(server_reply, 0, BUF_SIZE * 2);
-	    if(recv(con->sock, server_reply, BUF_SIZE * 2, 0) < 0)
-	    {
-	        perror("recv failed");
-	        return (-1);
-	    }
-	    printf("\nServer reply :\n");
-	    printf("%s\n", server_reply);
-	    parse_reply(server_reply);
-	}
-
-    return 1;
-}
-
 void AudioCallback(void*  userdata,
                        Uint8* stream,
                        int    len)
 {
 	t_client_connection *con = (t_client_connection*)userdata;
+	con->has_data = 1;
 
     int32_t num_samples = len / 2;
     send(con->sock, &num_samples, sizeof(num_samples), 0);
@@ -146,12 +69,6 @@ static void recognize(t_client_connection *con)
         //return (1);
     }
 
-    window = SDL_CreateWindow("testaudiocapture", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 320, 240, 0);
-    renderer = SDL_CreateRenderer(window, -1, 0);
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-    SDL_RenderClear(renderer);
-    SDL_RenderPresent(renderer);
-
     devcount = SDL_GetNumAudioDevices(SDL_TRUE);
     for (i = 0; i < devcount; i++)
         SDL_Log(" Capture device #%d: '%s'\n", i, SDL_GetAudioDeviceName(i, SDL_TRUE));
@@ -160,7 +77,7 @@ static void recognize(t_client_connection *con)
     wanted.freq = 16000;
     wanted.format = AUDIO_S16LSB;
     wanted.channels = 1;
-    wanted.samples = 4096;
+    wanted.samples = BUF_SIZE / 2;
     wanted.callback = AudioCallback;
     wanted.userdata = con;
 
@@ -174,12 +91,29 @@ static void recognize(t_client_connection *con)
         exit(1);
     }
 
-    while (42)
+    SDL_PauseAudioDevice(devid_in, SDL_FALSE);
+
+    // Wait for server to tell us what to do while feeding it
+    // with audio samples.
+    printf("Sending...\n");
+
+    char server_reply[BUF_SIZE * 2] = {0};
+
+	memset(server_reply, 0, BUF_SIZE * 2);
+    if(recv(con->sock, server_reply, BUF_SIZE * 2, 0) < 0)
     {
-        if (loop(con) == 0)
-        	break ;
-        SDL_Delay(16);
+        perror("recv failed");
+        return;
     }
+
+    printf("\nServer reply :\n");
+    printf("%s\n", server_reply);
+    parse_reply(server_reply);
+
+    SDL_Log("Shutting down.\n");
+    SDL_PauseAudioDevice(devid_in, 1);
+    SDL_CloseAudioDevice(devid_in);
+    SDL_Quit();
 }
 
 
@@ -196,6 +130,7 @@ static int init_connect(t_client_connection *con)
     con->server.sin_addr.s_addr = inet_addr("127.0.0.1");
     con->server.sin_family = AF_INET;
     con->server.sin_port = htons(8888);
+    con->has_data = 0;
     if (connect(con->sock, (struct sockaddr *)&con->server, sizeof(con->server)) < 0)
     {
         perror("connect failed. Error");
