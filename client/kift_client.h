@@ -20,6 +20,8 @@
 # include <unistd.h>
 # include <stdlib.h>
 # include <sys/stat.h>
+# include <SDL.h>
+# include <stdlib.h>
 # define BUF_SIZE (512)  // 256 samples 16 bits each.
 # define SMART_FREE(x) {free(x); x = NULL;}
 

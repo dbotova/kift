@@ -23,6 +23,11 @@
 # include <string.h>
 # include <sys/wait.h>
 # include <signal.h>
+# include <string.h>
+# include <assert.h>
+# include <sphinxbase/err.h>
+# include <sphinxbase/ad.h>
+# include "pocketsphinx.h"
 # define BUF_SIZE 1000
 # define SMART_FREE(x) {free(x); x = NULL;}
 
